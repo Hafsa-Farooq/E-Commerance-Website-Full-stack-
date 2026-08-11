@@ -1,4 +1,13 @@
+@import url('https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,701&f[]=clash-display@700&display=swap');
 @import "tailwindcss";
+
+.font-satoshi {
+  font-family: 'Satoshi', sans-serif;
+}
+
+.font-heading {
+  font-family: 'Clash Display', sans-serif;
+}
 
 :root {
   --background: #ffffff;
