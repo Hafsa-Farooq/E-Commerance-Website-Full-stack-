@@ -14,7 +14,23 @@ export default function Navbar() {
 
   return (
     <header className="bg-white">
-      <div className="max-w-[1240px] mx-auto px-4 sm:px-6 lg:px-0 py-4 lg:py-[14px] flex items-center justify-between gap-4 lg:gap-10">
+      <div className="max-w-[1240px] mx-auto px-4 sm:px-6 lg:px-0 py-3.5 lg:py-[14px] flex items-center gap-3 lg:gap-10">
+        {/* Mobile hamburger — left side, hidden on desktop */}
+        <button
+          aria-label="Toggle menu"
+          onClick={() => setMenuOpen(!menuOpen)}
+          className="lg:hidden shrink-0"
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M3 6H21M3 12H21M3 18H21"
+              stroke="black"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+          </svg>
+        </button>
+
         {/* Logo */}
         <a
           href="/"
@@ -73,10 +89,27 @@ export default function Navbar() {
           />
         </div>
 
-        {/* Icons */}
-        <div className="flex items-center gap-3.5 shrink-0">
+        {/* Icons — pushed to right */}
+        <div className="flex items-center gap-3.5 ml-auto shrink-0">
+          {/* Mobile search icon (opens dropdown search) */}
+          <button
+            aria-label="Search"
+            className="lg:hidden"
+            onClick={() => setMenuOpen(!menuOpen)}
+          >
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <circle cx="9" cy="9" r="7" stroke="black" strokeWidth="1.5" />
+              <path
+                d="M19 19L14.65 14.65"
+                stroke="black"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
+
           <button aria-label="Cart">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="lg:w-[22px] lg:h-[22px]">
               <path
                 d="M3 3H5L5.4 5M7 13H17L21 5H5.4M7 13L5.4 5M7 13L4.7 15.3C4.1 15.9 4.5 17 5.4 17H17M17 17C15.9 17 15 17.9 15 19C15 20.1 15.9 21 17 21C18.1 21 19 20.1 19 19C19 17.9 18.1 17 17 17ZM9 19C9 20.1 8.1 21 7 21C5.9 21 5 20.1 5 19C5 17.9 5.9 17 7 17C8.1 17 9 17.9 9 19Z"
                 stroke="black"
@@ -87,7 +120,7 @@ export default function Navbar() {
             </svg>
           </button>
           <button aria-label="Account">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="lg:w-[22px] lg:h-[22px]">
               <circle cx="12" cy="8" r="4" stroke="black" strokeWidth="1.5" />
               <path
                 d="M4 20C4 16.5 7.5 14 12 14C16.5 14 20 16.5 20 20"
@@ -97,26 +130,10 @@ export default function Navbar() {
               />
             </svg>
           </button>
-
-          {/* Mobile menu toggle */}
-          <button
-            aria-label="Toggle menu"
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="lg:hidden"
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-              <path
-                d="M3 6H21M3 12H21M3 18H21"
-                stroke="black"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-              />
-            </svg>
-          </button>
         </div>
       </div>
 
-      {/* Mobile menu dropdown */}
+      {/* Mobile dropdown — search + nav links */}
       {menuOpen && (
         <div className="lg:hidden px-4 pb-4 flex flex-col gap-4 border-t border-black/10 pt-4">
           <div className="flex items-center bg-[#F0F0F0] rounded-full px-4 py-3 gap-3">
