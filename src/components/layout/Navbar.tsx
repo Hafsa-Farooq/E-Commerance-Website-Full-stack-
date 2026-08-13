@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
 
 const navLinks = [
   { label: "Shop", href: "#", hasDropdown: true },
@@ -120,26 +119,17 @@ export default function Navbar() {
               />
             </svg>
           </button>
-
-          {/* Clerk Authentication Integration */}
-          <SignedOut>
-            <SignInButton mode="modal">
-              <button aria-label="Account" className="cursor-pointer">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="lg:w-[22px] lg:h-[22px]">
-                  <circle cx="12" cy="8" r="4" stroke="black" strokeWidth="1.5" />
-                  <path
-                    d="M4 20C4 16.5 7.5 14 12 14C16.5 14 20 16.5 20 20"
-                    stroke="black"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </button>
-            </SignInButton>
-          </SignedOut>
-          <SignedIn>
-            <UserButton afterSignOutUrl="/" />
-          </SignedIn>
+          <button aria-label="Account">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="lg:w-[22px] lg:h-[22px]">
+              <circle cx="12" cy="8" r="4" stroke="black" strokeWidth="1.5" />
+              <path
+                d="M4 20C4 16.5 7.5 14 12 14C16.5 14 20 16.5 20 20"
+                stroke="black"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
         </div>
       </div>
 
