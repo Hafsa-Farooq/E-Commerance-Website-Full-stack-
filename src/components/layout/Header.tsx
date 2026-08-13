@@ -3,16 +3,28 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { Search, ShoppingCart, User, Menu, X, ChevronDown } from "lucide-react";
+import { useUser, SignInButton, UserButton } from "@clerk/nextjs";
 
 export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { isSignedIn } = useUser();
 
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-black/10 font-satoshi">
       {/* Top Banner */}
       <div className="bg-black text-white text-xs sm:text-sm py-2 px-4 text-center flex items-center justify-center gap-2">
         <span>Sign up and get 20% off to your first order.</span>
-        <Link href="/" className="underline font-medium cursor-pointer">Sign Up Now</Link>
+        {!isSignedIn ? (
+          <SignInButton mode="modal">
+            <button className="underline font-medium cursor-pointer bg-transparent border-none text-white p-0">
+              Sign Up Now
+            </button>
+          </SignInButton>
+        ) : (
+          <Link href="/" className="underline font-medium cursor-pointer">
+            Welcome!
+          </Link>
+        )}
       </div>
 
       {/* Main Navigation */}
@@ -53,7 +65,7 @@ export default function Header() {
           />
         </div>
 
-        {/* Right Icons: Cart & Profile */}
+        {/* Right Icons: Cart & Profile / Clerk Auth */}
         <div className="flex items-center gap-4 text-black">
           <Link href="/cart" className="relative cursor-pointer hover:opacity-80 transition-opacity p-1">
             <ShoppingCart className="w-6 h-6" />
@@ -61,9 +73,19 @@ export default function Header() {
               3
             </span>
           </Link>
-          <Link href="/" className="cursor-pointer hover:opacity-80 transition-opacity p-1">
-            <User className="w-6 h-6" />
-          </Link>
+
+          {/* Clerk Authentication Integration */}
+          {!isSignedIn ? (
+            <SignInButton mode="modal">
+              <button aria-label="Account" className="cursor-pointer hover:opacity-80 transition-opacity p-1 bg-transparent border-none">
+                <User className="w-6 h-6 text-black" />
+              </button>
+            </SignInButton>
+          ) : (
+            <div className="flex items-center">
+              <UserButton afterSignOutUrl="/" />
+            </div>
+          )}
         </div>
       </div>
 
