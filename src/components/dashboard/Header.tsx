@@ -1,5 +1,7 @@
-import { Search, Bell, Moon, Palette, PanelLeft } from "lucide-react";
-import { Input } from "@/components/ui/input";
+'use client';
+
+import React from "react";
+import { PanelLeft, Search, Bell, Moon, Palette } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface HeaderProps {
@@ -8,52 +10,50 @@ interface HeaderProps {
 
 export default function Header({ onToggle }: HeaderProps) {
   return (
-    <header className="flex h-16 items-center justify-between border-b bg-background px-6 sticky top-0 z-40">
-      {/* Left side: Collapse Icon & Search Bar */}
-      <div className="flex items-center gap-4">
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={onToggle} 
-          className="h-9 w-9 text-muted-foreground shrink-0 rounded-xl hover:bg-muted"
+    <header className="sticky top-0 z-40 h-16 bg-card/80 backdrop-blur-md border-b px-6 flex items-center justify-between gap-4">
+      {/* Left: Sidebar Toggle & Search */}
+      <div className="flex items-center gap-4 flex-1 max-w-md">
+        <button 
+          onClick={onToggle}
+          className="p-2 hover:bg-muted rounded-xl text-muted-foreground hover:text-foreground transition-colors"
         >
-          <PanelLeft className="h-4 w-4" />
-        </Button>
-        
-        <div className="w-64 sm:w-80 relative">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Search..."
-            className="w-full rounded-xl bg-muted/40 pl-9 pr-12 text-sm"
+          <PanelLeft className="h-5 w-5" />
+        </button>
+
+        <div className="relative w-full max-w-sm">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input 
+            type="text" 
+            placeholder="Search..." 
+            className="w-full bg-muted/40 border rounded-xl pl-10 pr-12 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
-          <div className="absolute right-3 top-2 flex items-center gap-0.5 rounded border bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-            <span>⌘</span>k
-          </div>
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-mono bg-muted border px-1.5 py-0.5 rounded text-muted-foreground">
+            ⌘k
+          </span>
         </div>
       </div>
 
-      {/* Right side Actions & Profile */}
+      {/* Right Actions */}
       <div className="flex items-center gap-3">
-        <button className="text-sm font-bold text-rose-500 hover:opacity-80 px-2 hidden sm:block">
+        <Button variant="outline" size="sm" className="rounded-xl font-semibold text-xs bg-rose-500 text-white hover:bg-rose-600 border-none shadow-sm">
           Get Pro
-        </button>
-        <Button variant="ghost" size="icon" className="rounded-full relative">
+        </Button>
+
+        <button className="p-2 hover:bg-muted rounded-xl text-muted-foreground hover:text-foreground transition-colors relative">
           <Bell className="h-4 w-4" />
-          <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-rose-500"></span>
-        </Button>
-        <Button variant="ghost" size="icon" className="rounded-full hidden sm:flex">
+          <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-rose-500 rounded-full" />
+        </button>
+
+        <button className="p-2 hover:bg-muted rounded-xl text-muted-foreground hover:text-foreground transition-colors">
           <Moon className="h-4 w-4" />
-        </Button>
-        <Button variant="ghost" size="icon" className="rounded-full hidden sm:flex">
+        </button>
+
+        <button className="p-2 hover:bg-muted rounded-xl text-muted-foreground hover:text-foreground transition-colors">
           <Palette className="h-4 w-4" />
-        </Button>
-        <div className="h-9 w-9 rounded-full bg-slate-300 overflow-hidden ml-2">
-          <img 
-            src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces" 
-            alt="Avatar" 
-            className="h-full w-full object-cover" 
-          />
+        </button>
+
+        <div className="h-8 w-8 rounded-full overflow-hidden border ml-2">
+          <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop" alt="Profile" className="h-full w-full object-cover" />
         </div>
       </div>
     </header>

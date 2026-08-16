@@ -1,15 +1,15 @@
 'use client';
 
 import { useState } from "react";
-import Sidebar from "./Sidebar";
-import Header from "./Header";
+import Sidebar from "@/components/dashboard/Sidebar";
+import Header from "@/components/dashboard/Header";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   return (
     <div className="min-h-screen w-full bg-muted/15 flex">
-      {/* Sidebar Component */}
+      {/* Sidebar Component - Har page par fix rahega */}
       <Sidebar isOpen={isSidebarOpen} />
 
       {/* Main Content Area */}

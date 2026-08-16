@@ -1,144 +1,164 @@
+'use client';
+
+import React, { useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { 
+  LayoutDashboard, 
   ShoppingBag, 
-  CreditCard, 
-  Layers, 
-  Boxes, 
-  Home, 
+  ChevronDown, 
+  ChevronRight, 
+  ShoppingCart, 
   Users, 
   Ticket, 
-  ChevronDown,
-  MoreVertical,
-  Package,
-  ShoppingCart
+  Sparkles
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 interface SidebarProps {
   isOpen: boolean;
 }
 
 export default function Sidebar({ isOpen }: SidebarProps) {
+  const pathname = usePathname();
+  const [isEcommerceOpen, setIsEcommerceOpen] = useState(true);
+
   return (
-    <aside 
-      className={`hidden border-r bg-muted/20 md:flex md:flex-col fixed inset-y-0 z-50 transition-all duration-300 ${
-        isOpen ? "md:w-72" : "md:w-20"
-      }`}
-    >
-      {/* Top Admin Dashboard Section */}
-      <div className={`flex h-16 items-center border-b px-4 shrink-0 ${isOpen ? "justify-between" : "justify-center"}`}>
-        <div className="flex items-center gap-3 font-bold text-base overflow-hidden">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm font-bold text-sm">
+    <aside className={`fixed inset-y-0 left-0 z-50 bg-card border-r transition-all duration-300 flex flex-col ${isOpen ? "w-72" : "w-20"}`}>
+      {/* Logo Section */}
+      <div className="h-16 flex items-center justify-between px-6 border-b">
+        <div className="flex items-center gap-3 overflow-hidden">
+          <div className="h-9 w-9 shrink-0 bg-foreground text-background rounded-xl flex items-center justify-center font-bold text-lg">
             H
           </div>
-          {isOpen && <span className="truncate">Admin Dashboard</span>}
+          {isOpen && (
+            <div className="flex flex-col truncate">
+              <span className="font-bold text-foreground text-sm tracking-tight">Shadcn UI Kit</span>
+            </div>
+          )}
         </div>
-        {isOpen && <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />}
       </div>
 
       {/* Navigation Links */}
-      <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6 scrollbar-none">
-        <div>
-          {isOpen && (
-            <p className="text-xs font-semibold text-muted-foreground px-3 mb-2 uppercase tracking-wider">
-              Store Management
-            </p>
-          )}
-          <nav className="space-y-1">
-            {/* Overview / Classic Dashboard */}
-            <Link 
-              href="/admin" 
-              title={!isOpen ? "Overview" : ""}
-              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted/80 hover:text-foreground ${!isOpen ? "justify-center px-0" : ""}`}
-            >
-              <Home className="h-4 w-4 shrink-0" />
-              {isOpen && <span className="truncate">Overview</span>}
-            </Link>
-            
-            {/* Products Dropdown / Section */}
-            <div className={`rounded-xl ${isOpen ? "bg-muted/60 p-1.5" : "flex justify-center p-1"} space-y-1`}>
-              <Link 
-                href="/admin/products" 
-                title={!isOpen ? "Products Management" : ""}
-                className={`flex items-center ${isOpen ? "justify-between px-3 py-2 bg-background shadow-sm" : "justify-center p-2.5"} rounded-lg text-sm font-medium text-foreground`}
-              >
-                <div className="flex items-center gap-3">
-                  <ShoppingBag className="h-4 w-4 shrink-0 text-foreground" />
-                </div>
-                {isOpen && (
-                  <>
-                    <span className="truncate flex-1 ml-3 font-semibold">Products</span>
-                    <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
-                  </>
-                )}
-              </Link>
-              
-              {isOpen && (
-                <div className="pl-7 space-y-1 text-sm pt-1">
-                  <Link href="/admin/products" className="block rounded-lg bg-background px-3 py-1.5 font-medium text-foreground shadow-sm">All Products</Link>
-                  <Link href="/admin/categories" className="block rounded-lg px-3 py-1.5 text-muted-foreground hover:text-foreground">Categories</Link>
-                  <Link href="/admin/inventory" className="block rounded-lg px-3 py-1.5 text-muted-foreground hover:text-foreground">Inventory</Link>
-                </div>
-              )}
-            </div>
+      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-6">
+        {/* Dashboards Section */}
+        <div className="space-y-2">
+          {isOpen && <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3">Dashboards</p>}
+          
+          <Link 
+            href="/dashboard"
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+              pathname === "/dashboard" ? "bg-muted text-foreground font-semibold" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+            }`}
+          >
+            <LayoutDashboard className="h-4 w-4 shrink-0" />
+            {isOpen && <span>Classic Dashboard</span>}
+          </Link>
 
-            {/* Other Database-Connected Admin Routes */}
-            {[
-              { label: "Orders", icon: ShoppingCart, href: "/admin/orders" },
-              { label: "Customers", icon: Users, href: "/admin/customers" },
-              { label: "Coupons", icon: Ticket, href: "/admin/coupons" },
-              { label: "Payments", icon: CreditCard, href: "/admin/payments" },
-            ].map((item, idx) => {
-              const Icon = item.icon;
-              return (
+          {/* E-commerce Dropdown */}
+          <div className="space-y-1">
+            <button 
+              onClick={() => setIsEcommerceOpen(!isEcommerceOpen)}
+              className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <ShoppingBag className="h-4 w-4 shrink-0" />
+                {isOpen && <span>E-commerce</span>}
+              </div>
+              {isOpen && (
+                isEcommerceOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />
+              )}
+            </button>
+
+            {isOpen && isEcommerceOpen && (
+              <div className="pl-9 space-y-1 pt-1">
                 <Link 
-                  key={idx}
-                  href={item.href} 
-                  title={!isOpen ? item.label : ""}
-                  className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted/80 hover:text-foreground ${!isOpen ? "justify-center px-0" : "justify-between"}`}
+                  href="/dashboard" 
+                  className="block px-3 py-2 rounded-xl text-sm font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                 >
-                  <div className="flex items-center gap-3">
-                    <Icon className="h-4 w-4 shrink-0" />
-                    {isOpen && <span className="truncate">{item.label}</span>}
-                  </div>
+                  Dashboard
                 </Link>
-              );
-            })}
-          </nav>
+                <Link 
+                  href="/dashboard/product-list" 
+                  className={`block px-3 py-2 rounded-xl text-sm font-medium ${
+                    pathname === "/dashboard/product-list" ? "bg-muted text-foreground font-semibold" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                  }`}
+                >
+                  Product List
+                </Link>
+                <Link 
+                  href="/dashboard/product-detail" 
+                  className="block px-3 py-2 rounded-xl text-sm font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                >
+                  Product Detail
+                </Link>
+                <Link 
+                  href="/dashboard/add-product" 
+                  className="block px-3 py-2 rounded-xl text-sm font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                >
+                  Add Product
+                </Link>
+                <Link 
+                  href="/dashboard/categories" 
+                  className="block px-3 py-2 rounded-xl text-sm font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                >
+                  Categories
+                </Link>
+                <Link 
+                  href="/dashboard/inventory" 
+                  className="block px-3 py-2 rounded-xl text-sm font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                >
+                  Inventory
+                </Link>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Promo Box (Visible only when expanded) */}
-        {isOpen && (
-          <div className="rounded-2xl border bg-card p-4 shadow-sm space-y-3 relative overflow-hidden">
-            <h4 className="font-bold text-sm">Live Database</h4>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Connected securely to your store database via Prisma ORM.
-            </p>
-            <div className="flex items-center gap-2 text-xs font-semibold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/50 p-2 rounded-xl border border-emerald-200 dark:border-emerald-900">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span> DB Connected
-            </div>
-          </div>
-        )}
+        {/* Other Sections */}
+        <div className="space-y-1">
+          <Link href="/dashboard/orders" className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground">
+            <ShoppingCart className="h-4 w-4 shrink-0" />
+            {isOpen && <span>Orders</span>}
+          </Link>
+          <Link href="/dashboard/customers" className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground">
+            <Users className="h-4 w-4 shrink-0" />
+            {isOpen && <span>Customers</span>}
+          </Link>
+          <Link href="/dashboard/coupons" className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground">
+            <Ticket className="h-4 w-4 shrink-0" />
+            {isOpen && <span>Coupons</span>}
+          </Link>
+        </div>
       </div>
 
-      {/* Bottom Profile Section */}
-      <div className={`border-t p-3 flex items-center bg-background shrink-0 ${isOpen ? "justify-between" : "justify-center"}`}>
-        <div className="flex items-center gap-3 overflow-hidden">
-          <div className="h-9 w-9 shrink-0 rounded-full bg-slate-300 overflow-hidden flex items-center justify-center">
-            <img 
-              src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces" 
-              alt="Avatar" 
-              className="h-full w-full object-cover" 
-            />
+      {/* Unlock Everything Promo Card */}
+      {isOpen && (
+        <div className="p-4 m-4 bg-muted/30 border rounded-2xl space-y-3">
+          <div className="space-y-1">
+            <h4 className="font-bold text-sm text-foreground flex items-center gap-1.5">
+              <Sparkles className="h-4 w-4 text-amber-500" /> Unlock Everything
+            </h4>
+            <p className="text-xs text-muted-foreground">
+              Get instant access to all premium dashboards, templates, and UI components.
+            </p>
           </div>
-          {isOpen && (
-            <div className="text-left overflow-hidden">
-              <p className="text-sm font-semibold leading-none truncate">Hafsa Store Admin</p>
-              <p className="text-xs text-muted-foreground truncate mt-1">admin@store.com</p>
-            </div>
-          )}
+          <button className="w-full bg-foreground text-background font-medium py-2 rounded-xl text-xs hover:bg-foreground/90 transition-colors">
+            Get Full Access
+          </button>
         </div>
-        {isOpen && <MoreVertical className="h-4 w-4 text-muted-foreground cursor-pointer shrink-0" />}
+      )}
+
+      {/* User Profile Footer */}
+      <div className="p-4 border-t flex items-center gap-3">
+        <div className="h-10 w-10 shrink-0 rounded-full bg-muted overflow-hidden">
+          <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop" alt="User" className="h-full w-full object-cover" />
+        </div>
+        {isOpen && (
+          <div className="flex flex-col truncate">
+            <span className="font-semibold text-sm text-foreground truncate">Toby Belhome</span>
+            <span className="text-xs text-muted-foreground truncate">hello@tobybelhome.com</span>
+          </div>
+        )}
       </div>
     </aside>
   );
