@@ -142,3 +142,13 @@ body {
     @apply font-sans;
   }
 }
+
+@media print {
+  aside, nav, header {
+    display: none !important;
+  }
+  body {
+    background: white !important;
+    color: black !important;
+  }
+}

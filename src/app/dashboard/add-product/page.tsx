@@ -1,5 +1,7 @@
 'use client';
 
+import { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,22 +9,219 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ImagePlus, Plus, UploadCloud } from "lucide-react";
+import { ImagePlus, Plus, UploadCloud, Loader2, X, Check } from "lucide-react";
+
+interface CategoryOption {
+  id: string;
+  name: string;
+}
+
+// Preset color palette — swatch + label, jo Variants mein "color" option select karne par dikhega
+const colorPalette = [
+  { name: "Black", hex: "#000000" },
+  { name: "White", hex: "#FFFFFF" },
+  { name: "Red", hex: "#F50606" },
+  { name: "Olive", hex: "#4F4631" },
+  { name: "Forest Green", hex: "#314F43" },
+  { name: "Navy", hex: "#31354F" },
+  { name: "Blue", hex: "#063AF5" },
+  { name: "Yellow", hex: "#F5DD06" },
+  { name: "Orange", hex: "#F57906" },
+  { name: "Purple", hex: "#7D06F5" },
+  { name: "Pink", hex: "#F506A2" },
+  { name: "Cyan", hex: "#06CAF5" },
+];
 
 export default function AddProductPage() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Categories fetched from database
+  const [categories, setCategories] = useState<CategoryOption[]>([]);
+  const [loadingCategories, setLoadingCategories] = useState(true);
+  const [selectedCategoryName, setSelectedCategoryName] = useState("");
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const res = await fetch("/api/categories");
+        const json = await res.json();
+        const list = Array.isArray(json) ? json : json.data || [];
+        setCategories(list);
+      } catch (error) {
+        console.error("Failed to load categories:", error);
+      } finally {
+        setLoadingCategories(false);
+      }
+    };
+    fetchCategories();
+  }, []);
+
+  // Form state management
+  const [formData, setFormData] = useState({
+    name: "",
+    sku: "",
+    barcode: "",
+    description: "",
+    price: "",
+    discountPrice: "",
+    stockQuantity: "",
+    inStock: true,
+    status: "draft",
+    category: "",
+  });
+
+  // Images state (Cloudinary URLs)
+  const [images, setImages] = useState<string[]>([]);
+
+  // Variants state
+  const [variants, setVariants] = useState([
+    { option: "color", value: "", price: "" }
+  ]);
+
+  const handleChange = (field: string, value: any) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  // Handle Cloudinary Image Upload
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setUploadingImage(true);
+    try {
+      const uploadedUrls: string[] = [];
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const data = new FormData();
+        data.append("file", file);
+
+        const res = await fetch("/api/upload", {
+          method: "POST",
+          body: data,
+        });
+
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || "Image upload failed");
+
+        if (json.secure_url || json.url) {
+          uploadedUrls.push(json.secure_url || json.url);
+        }
+      }
+
+      setImages((prev) => [...prev, ...uploadedUrls]);
+    } catch (error: any) {
+      console.error(error);
+      alert(error.message || "Failed to upload image");
+    } finally {
+      setUploadingImage(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const removeImage = (indexToRemove: number) => {
+    setImages(images.filter((_, index) => index !== indexToRemove));
+  };
+
+  // Variant handlers
+  const addVariantRow = () => {
+    setVariants([...variants, { option: "size", value: "", price: "" }]);
+  };
+
+  const updateVariant = (index: number, field: string, value: string) => {
+    const updated = [...variants];
+    updated[index][field as keyof typeof updated[0]] = value;
+    // Agar option badla (jaise color se size), to purani value clear kar dein taake mismatch na ho
+    if (field === "option") {
+      updated[index].value = "";
+    }
+    setVariants(updated);
+  };
+
+  const removeVariantRow = (index: number) => {
+    setVariants(variants.filter((_, i) => i !== index));
+  };
+
+  const handleSubmit = async (e?: React.FormEvent, customStatus?: string) => {
+    if (e) e.preventDefault();
+
+    if (!formData.category) {
+      alert("Please select a category before publishing.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const productStatus = customStatus || formData.status;
+      const payload = {
+        name: formData.name,
+        sku: formData.sku,
+        barcode: formData.barcode,
+        description: formData.description,
+        price: formData.price,
+        discountPrice: formData.discountPrice,
+        stock: formData.stockQuantity ? parseInt(formData.stockQuantity) : 0,
+        status: productStatus,
+        category: formData.category,
+        images: images,
+        variants: variants,
+      };
+
+      const response = await fetch("/api/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to create product");
+      }
+
+      alert("Product added successfully!");
+      router.push("/dashboard/products");
+      router.refresh();
+    } catch (error: any) {
+      console.error(error);
+      alert(error.message || "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="flex flex-col gap-6 pb-12">
+    <form onSubmit={(e) => handleSubmit(e)} className="flex flex-col gap-6 pb-12">
       {/* Top Header Title & Action Buttons */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Add Products</h1>
         <div className="flex items-center gap-3">
-          <Button variant="outline" className="rounded-xl text-xs font-semibold">
+          <Button 
+            type="button" 
+            variant="outline" 
+            className="rounded-xl text-xs font-semibold"
+            onClick={() => router.back()}
+          >
             Discard
           </Button>
-          <Button variant="outline" className="rounded-xl text-xs font-semibold">
+          <Button 
+            type="button" 
+            variant="outline" 
+            className="rounded-xl text-xs font-semibold"
+            disabled={loading}
+            onClick={() => handleSubmit(undefined, "draft")}
+          >
             Save Draft
           </Button>
-          <Button className="rounded-xl bg-foreground text-background hover:bg-foreground/95 text-xs font-semibold">
+          <Button 
+            type="submit" 
+            disabled={loading}
+            className="rounded-xl bg-foreground text-background hover:bg-foreground/95 text-xs font-semibold"
+          >
+            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Publish
           </Button>
         </div>
@@ -40,17 +239,36 @@ export default function AddProductPage() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name" className="text-xs font-semibold">Name</Label>
-                <Input id="name" placeholder="Product name" className="rounded-xl" />
+                <Input 
+                  id="name" 
+                  placeholder="Product name" 
+                  className="rounded-xl"
+                  value={formData.name}
+                  onChange={(e) => handleChange("name", e.target.value)}
+                  required 
+                />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="sku" className="text-xs font-semibold">SKU</Label>
-                  <Input id="sku" placeholder="SKU code" className="rounded-xl" />
+                  <Input 
+                    id="sku" 
+                    placeholder="SKU code" 
+                    className="rounded-xl"
+                    value={formData.sku}
+                    onChange={(e) => handleChange("sku", e.target.value)}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="barcode" className="text-xs font-semibold">Barcode</Label>
-                  <Input id="barcode" placeholder="Barcode number" className="rounded-xl" />
+                  <Input 
+                    id="barcode" 
+                    placeholder="Barcode number" 
+                    className="rounded-xl"
+                    value={formData.barcode}
+                    onChange={(e) => handleChange("barcode", e.target.value)}
+                  />
                 </div>
               </div>
 
@@ -60,6 +278,8 @@ export default function AddProductPage() {
                   id="description" 
                   placeholder="Set a description to the product for better visibility." 
                   className="rounded-xl min-h-[120px] resize-none" 
+                  value={formData.description}
+                  onChange={(e) => handleChange("description", e.target.value)}
                 />
               </div>
             </CardContent>
@@ -69,25 +289,59 @@ export default function AddProductPage() {
           <Card className="rounded-2xl border shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-lg font-bold">Product Images</CardTitle>
-              <button className="text-xs font-semibold text-primary hover:underline">
-                Add media from URL
-              </button>
+              <span className="text-xs text-muted-foreground">Uploaded via Cloudinary</span>
             </CardHeader>
-            <CardContent>
-              <div className="border-2 border-dashed border-muted rounded-2xl p-8 flex flex-col items-center justify-center text-center bg-muted/20">
+            <CardContent className="space-y-4">
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleImageUpload} 
+                multiple 
+                accept="image/*" 
+                className="hidden" 
+              />
+
+              <div 
+                onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed border-muted rounded-2xl p-8 flex flex-col items-center justify-center text-center bg-muted/20 cursor-pointer hover:bg-muted/30 transition"
+              >
                 <div className="h-10 w-10 rounded-full bg-background flex items-center justify-center shadow-sm mb-3 text-muted-foreground">
-                  <UploadCloud className="h-5 w-5" />
+                  {uploadingImage ? <Loader2 className="h-5 w-5 animate-spin" /> : <UploadCloud className="h-5 w-5" />}
                 </div>
-                <p className="text-sm font-semibold text-foreground mb-1">Drop your images here</p>
-                <p className="text-xs text-muted-foreground mb-4">PNG or JPG (max. 5MB)</p>
-                <Button variant="outline" size="sm" className="rounded-xl text-xs font-semibold flex items-center gap-2">
-                  <ImagePlus className="h-4 w-4" /> Select images
+                <p className="text-sm font-semibold text-foreground mb-1">
+                  {uploadingImage ? "Uploading to Cloudinary..." : "Drop your images here or click to browse"}
+                </p>
+                <p className="text-xs text-muted-foreground mb-4">PNG, JPG, WEBP up to 5MB</p>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm" 
+                  className="rounded-xl text-xs font-semibold flex items-center gap-2 pointer-events-none"
+                >
+                  <ImagePlus className="h-4 w-4" /> Select images from device
                 </Button>
               </div>
+
+              {images.length > 0 && (
+                <div className="grid grid-cols-3 gap-3 pt-2">
+                  {images.map((url, idx) => (
+                    <div key={idx} className="relative group rounded-xl overflow-hidden border aspect-square bg-muted">
+                      <img src={url} alt={`Uploaded ${idx}`} className="object-cover w-full h-full" />
+                      <button
+                        type="button"
+                        onClick={() => removeImage(idx)}
+                        className="absolute top-1 right-1 bg-black/70 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          {/* Variants Card */}
+          {/* Variants Card — color option ab swatch picker use karta hai */}
           <Card className="rounded-2xl border shadow-sm">
             <CardHeader>
               <CardTitle className="text-lg font-bold">Variants</CardTitle>
@@ -99,39 +353,85 @@ export default function AddProductPage() {
                 <span>Price</span>
               </div>
 
-              {/* Variant Row 1 */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
-                <Select>
-                  <SelectTrigger className="rounded-xl text-xs">
-                    <SelectValue placeholder="Select a status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="size">Size</SelectItem>
-                    <SelectItem value="color">Color</SelectItem>
-                    <SelectItem value="material">Material</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Input placeholder="Value" className="rounded-xl text-xs" />
-                <Input placeholder="Price" className="rounded-xl text-xs" />
-              </div>
+              {variants.map((variant, index) => (
+                <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-3 items-start">
+                  <Select 
+                    value={variant.option} 
+                    onValueChange={(val) => updateVariant(index, "option", val)}
+                  >
+                    <SelectTrigger className="rounded-xl text-xs">
+                      <SelectValue placeholder="Select an option" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="size">Size</SelectItem>
+                      <SelectItem value="color">Color</SelectItem>
+                      <SelectItem value="material">Material</SelectItem>
+                    </SelectContent>
+                  </Select>
 
-              {/* Variant Row 2 */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
-                <Select>
-                  <SelectTrigger className="rounded-xl text-xs">
-                    <SelectValue placeholder="Select a status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="size">Size</SelectItem>
-                    <SelectItem value="color">Color</SelectItem>
-                    <SelectItem value="material">Material</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Input placeholder="Value" className="rounded-xl text-xs" />
-                <Input placeholder="Price" className="rounded-xl text-xs" />
-              </div>
+                  {/* Value field — color ke liye swatch picker, baaqi ke liye text input */}
+                  {variant.option === "color" ? (
+                    <div className="flex flex-col gap-2">
+                      <div className="flex flex-wrap gap-2">
+                        {colorPalette.map((c) => (
+                          <button
+                            key={c.name}
+                            type="button"
+                            title={c.name}
+                            onClick={() => updateVariant(index, "value", c.name)}
+                            style={{ backgroundColor: c.hex }}
+                            className={`h-7 w-7 rounded-full border flex items-center justify-center transition-transform hover:scale-110 cursor-pointer ${
+                              c.hex.toUpperCase() === "#FFFFFF" ? "border-black/20" : "border-black/10"
+                            } ${variant.value === c.name ? "ring-2 ring-offset-1 ring-black" : ""}`}
+                          >
+                            {variant.value === c.name && (
+                              <Check className={`h-3.5 w-3.5 ${c.hex.toUpperCase() === "#FFFFFF" ? "text-black" : "text-white"}`} />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                      {variant.value && (
+                        <span className="text-xs text-muted-foreground">Selected: {variant.value}</span>
+                      )}
+                    </div>
+                  ) : (
+                    <Input 
+                      placeholder="Value (e.g. Small / Cotton)" 
+                      className="rounded-xl text-xs" 
+                      value={variant.value}
+                      onChange={(e) => updateVariant(index, "value", e.target.value)}
+                    />
+                  )}
 
-              <Button variant="outline" size="sm" className="rounded-xl text-xs font-semibold flex items-center gap-1.5 mt-2">
+                  <div className="flex items-center gap-2">
+                    <Input 
+                      placeholder="Price" 
+                      className="rounded-xl text-xs flex-1" 
+                      value={variant.price}
+                      onChange={(e) => updateVariant(index, "price", e.target.value)}
+                    />
+                    {variants.length > 1 && (
+                      <Button 
+                        type="button" 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-9 w-9 text-red-500 hover:text-red-700 shrink-0"
+                        onClick={() => removeVariantRow(index)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              <Button 
+                type="button" 
+                variant="outline" 
+                size="sm" 
+                className="rounded-xl text-xs font-semibold flex items-center gap-1.5 mt-2"
+                onClick={addVariantRow}
+              >
                 <Plus className="h-4 w-4" /> Add Variant
               </Button>
             </CardContent>
@@ -148,12 +448,41 @@ export default function AddProductPage() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="base-price" className="text-xs font-semibold">Base Price</Label>
-                <Input id="base-price" placeholder="0.00" className="rounded-xl" />
+                <Input 
+                  id="base-price" 
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00" 
+                  className="rounded-xl"
+                  value={formData.price}
+                  onChange={(e) => handleChange("price", e.target.value)}
+                  required 
+                />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="discount-price" className="text-xs font-semibold">Discounted Price</Label>
-                <Input id="discount-price" placeholder="0.00" className="rounded-xl" />
+                <Input 
+                  id="discount-price" 
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00" 
+                  className="rounded-xl"
+                  value={formData.discountPrice}
+                  onChange={(e) => handleChange("discountPrice", e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="stock-quantity" className="text-xs font-semibold">Stock Quantity</Label>
+                <Input 
+                  id="stock-quantity" 
+                  type="number"
+                  placeholder="0" 
+                  className="rounded-xl"
+                  value={formData.stockQuantity}
+                  onChange={(e) => handleChange("stockQuantity", e.target.value)}
+                />
               </div>
 
               <div className="flex items-center justify-between pt-2">
@@ -163,7 +492,11 @@ export default function AddProductPage() {
 
               <div className="flex items-center justify-between pt-2 border-t">
                 <Label htmlFor="in-stock" className="text-xs font-medium text-foreground">In stock</Label>
-                <Switch id="in-stock" defaultChecked />
+                <Switch 
+                  id="in-stock" 
+                  checked={formData.inStock}
+                  onCheckedChange={(checked) => handleChange("inStock", checked)}
+                />
               </div>
             </CardContent>
           </Card>
@@ -174,7 +507,10 @@ export default function AddProductPage() {
               <CardTitle className="text-lg font-bold">Status</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Select defaultValue="draft">
+              <Select 
+                value={formData.status} 
+                onValueChange={(val) => handleChange("status", val)}
+              >
                 <SelectTrigger className="rounded-xl text-xs">
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
@@ -190,40 +526,47 @@ export default function AddProductPage() {
             </CardContent>
           </Card>
 
-          {/* Categories Card */}
+          {/* Categories Card — dynamic from database with correct name display */}
           <Card className="rounded-2xl border shadow-sm">
             <CardHeader>
               <CardTitle className="text-lg font-bold">Categories</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center gap-2">
-                <Select>
+                <Select 
+                  value={formData.category} 
+                  onValueChange={(val) => {
+                    handleChange("category", val);
+                    const selected = categories.find((c) => c.id === val);
+                    setSelectedCategoryName(selected?.name || "");
+                  }}
+                  disabled={loadingCategories}
+                >
                   <SelectTrigger className="rounded-xl text-xs flex-1">
-                    <SelectValue placeholder="Select a category" />
+                    <SelectValue placeholder={loadingCategories ? "Loading categories..." : "Select a category"}>
+                      {selectedCategoryName || undefined}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="electronics">Electronics</SelectItem>
-                    <SelectItem value="clothing">Clothing</SelectItem>
-                    <SelectItem value="home">Home & Kitchen</SelectItem>
+                    {categories.length === 0 && !loadingCategories && (
+                      <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                        No categories found. Create one first.
+                      </div>
+                    )}
+                    {categories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
-                <Button variant="outline" size="icon" className="rounded-xl h-10 w-10 shrink-0">
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Select>
-                  <SelectTrigger className="rounded-xl text-xs flex-1">
-                    <SelectValue placeholder="Select a sub category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="phones">Phones</SelectItem>
-                    <SelectItem value="laptops">Laptops</SelectItem>
-                    <SelectItem value="shirts">Shirts</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button variant="outline" size="icon" className="rounded-xl h-10 w-10 shrink-0">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="icon" 
+                  className="rounded-xl h-10 w-10 shrink-0"
+                  onClick={() => router.push("/dashboard/categories/add")}
+                >
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
@@ -231,6 +574,6 @@ export default function AddProductPage() {
           </Card>
         </div>
       </div>
-    </div>
+    </form>
   );
 }

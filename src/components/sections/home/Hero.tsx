@@ -22,11 +22,11 @@ export default function Hero() {
               Browse through our diverse range of meticulously crafted garments, designed to bring out your individuality and cater to your sense of style.
             </p>
 
-            {/* CTA Button */}
+            {/* CTA Button - Updated to /shop/casual */}
             <div className="mb-12">
               <Link
-                href="/shop"
-                className="inline-block bg-black text-white font-medium text-base px-14 py-4 rounded-full hover:bg-black/80 transition-all text-center w-full sm:w-auto shadow-sm"
+                href="/shop/casual"
+                className="inline-block bg-black text-white font-medium text-base px-14 py-4 rounded-full hover:bg-black/80 transition-all text-center w-full sm:w-auto shadow-sm cursor-pointer"
               >
                 Shop Now
               </Link>
@@ -54,7 +54,7 @@ export default function Hero() {
                 </p>
               </div>
 
-              {/* Stat 3 (Spans full width on mobile grid if 2 columns, or normal in 3-col grid) */}
+              {/* Stat 3 */}
               <div className="col-span-2 sm:col-span-1 text-center sm:text-left">
                 <h3 className="text-2xl sm:text-4xl font-bold text-black tracking-normal">
                   30,000+
@@ -87,7 +87,7 @@ export default function Hero() {
                 src="/Home-hero-bg-startR.png" 
                 alt="Decorative Star"
                 fill
-                className="object-contain "
+                className="object-contain"
               />
             </div>
 

@@ -1,13 +1,40 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { Search, ShoppingCart, User, Menu, X, ChevronDown } from "lucide-react";
 import { useUser, SignInButton, UserButton } from "@clerk/nextjs";
 
+const shopCategories = [
+  {
+    title: "Men",
+    items: ["T-shirts", "Shirts", "Jeans", "Shorts"],
+  },
+  {
+    title: "Women",
+    items: ["Tops & Tees", "Dresses", "Jeans", "Jackets"],
+  },
+  {
+    title: "Kids",
+    items: ["Casual Wear", "Outerwear", "Sets"],
+  },
+];
+
 export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [shopDropdownOpen, setShopDropdownOpen] = useState(false);
+  const shopRef = useRef<HTMLDivElement>(null);
   const { isSignedIn } = useUser();
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (shopRef.current && !shopRef.current.contains(e.target as Node)) {
+        setShopDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-black/10 font-satoshi">
@@ -46,10 +73,35 @@ export default function Header() {
 
         {/* Desktop Navigation Links */}
         <nav className="hidden lg:flex items-center gap-6 text-base text-black">
-          <Link href="/shop" className="hover:text-black/70 transition-colors flex items-center gap-1">
-            <span>Shop</span>
-            <ChevronDown className="w-4 h-4" />
-          </Link>
+          <div ref={shopRef} className="relative">
+            <button
+              onClick={() => setShopDropdownOpen(!shopDropdownOpen)}
+              className="hover:text-black/70 transition-colors flex items-center gap-1 cursor-pointer bg-transparent border-none text-black"
+            >
+              <span>Shop</span>
+              <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${shopDropdownOpen ? "rotate-180" : ""}`} />
+            </button>
+
+            {shopDropdownOpen && (
+              <div className="absolute top-full left-0 mt-4 bg-white rounded-[20px] shadow-[0_8px_30px_rgba(0,0,0,0.12)] px-8 py-6 flex gap-12 z-50 min-w-[420px]">
+                {shopCategories.map((category) => (
+                  <div key={category.title} className="flex flex-col gap-3">
+                    <span className="font-bold text-base text-black">{category.title}</span>
+                    {category.items.map((item) => (
+                      <Link
+                        key={item}
+                        href="/shop"
+                        onClick={() => setShopDropdownOpen(false)}
+                        className="text-base text-black/60 hover:text-black transition-colors"
+                      >
+                        {item}
+                      </Link>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
           <Link href="/shop" className="hover:text-black/70 transition-colors">On Sale</Link>
           <Link href="/shop" className="hover:text-black/70 transition-colors">New Arrivals</Link>
           <Link href="/shop" className="hover:text-black/70 transition-colors">Brands</Link>
@@ -83,7 +135,7 @@ export default function Header() {
             </SignInButton>
           ) : (
             <div className="flex items-center">
-              <UserButton afterSignOutUrl="/" />
+              <UserButton fallbackRedirectUrl="/" />
             </div>
           )}
         </div>

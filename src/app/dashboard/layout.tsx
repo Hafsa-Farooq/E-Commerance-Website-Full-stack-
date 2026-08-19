@@ -1,24 +1,21 @@
-'use client';
+import { currentUser } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
+import DashboardShell from "./DashboardShell";
 
-import { useState } from "react";
-import Sidebar from "@/components/dashboard/Sidebar";
-import Header from "@/components/dashboard/Header";
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const user = await currentUser();
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  if (!user) {
+    redirect("/sign-in");
+  }
 
-  return (
-    <div className="min-h-screen w-full bg-muted/15 flex">
-      {/* Sidebar Component - Har page par fix rahega */}
-      <Sidebar isOpen={isSidebarOpen} />
+  // Clerk Metadata role check
+  const role = (user.publicMetadata as { role?: string })?.role;
+  const isAdmin = role === "admin";
 
-      {/* Main Content Area */}
-      <div className={`flex flex-col flex-1 transition-all duration-300 ${isSidebarOpen ? "md:pl-72" : "md:pl-20"}`}>
-        <Header onToggle={() => setIsSidebarOpen(!isSidebarOpen)} />
-        <main className="flex flex-1 flex-col gap-6 p-6 lg:p-8">
-          {children}
-        </main>
-      </div>
-    </div>
-  );
+  if (!isAdmin) {
+    redirect("/");
+  }
+
+  return <DashboardShell>{children}</DashboardShell>;
 }
