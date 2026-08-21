@@ -25,7 +25,6 @@ export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch categories from API with search filtering
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -49,7 +48,6 @@ export default function CategoriesPage() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-// Handle category deletion safely
   const handleDelete = async (id: string) => {
     if (confirm("Are you sure you want to delete this category?")) {
       try {
@@ -211,7 +209,7 @@ export default function CategoriesPage() {
                             <button 
                               onClick={() => {
                                 setOpenDropdownId(null);
-                                router.push(`/dashboard/categories/edit/${cat.id}`);
+                                router.push(`/dashboard/categories/new?id=${cat.id}`);
                               }}
                               className="w-full text-left px-3 py-2 rounded-lg hover:bg-muted text-xs font-medium cursor-pointer"
                             >

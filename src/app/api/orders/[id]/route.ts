@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { sendEmail } from "@/lib/mail";
 
 interface Context {
   params: Promise<{
@@ -72,7 +73,7 @@ export async function GET(request: Request, context: Context) {
       orderType: "Delivery",
       subtotal: `$${Number(order.subtotal).toFixed(2)}`,
       shipping: `$${Number(order.shipping).toFixed(2)}`,
-      tax: `$${Number(order.tax).toFixed(2)}`,
+      tax: `$${Number(order.tax || 0).toFixed(2)}`,
       discount: discountValue,
       promoCode: promoCode || "",
       total: `$${Number(order.total).toFixed(2)}`,
@@ -86,7 +87,6 @@ export async function GET(request: Request, context: Context) {
         phone: order.address?.phone || "N/A",
       },
 
-      // Updated payment method check: Agar payment table mein record hai toh Stripe show ho ga
       payment: {
         method: order.payment ? "Stripe Online Payment" : "Not Specified",
         status: order.payment?.status || "PAID",
@@ -120,5 +120,81 @@ export async function GET(request: Request, context: Context) {
       { success: false, error: "Internal Server Error" },
       { status: 500 }
     );
+  }
+}
+
+// PATCH: Admin order status update & syncing payment status + delivery email trigger
+export async function PATCH(request: Request, context: Context) {
+  try {
+    const { id } = await context.params;
+    const body = await request.json();
+    const { status } = body;
+
+    if (!status) {
+      return NextResponse.json({ success: false, error: "Status is required" }, { status: 400 });
+    }
+
+    const existingOrder = await prisma.order.findFirst({
+      where: {
+        OR: [
+          { id: id },
+          { orderNumber: id },
+        ],
+      },
+    });
+
+    if (!existingOrder) {
+      return NextResponse.json({ success: false, error: "Order not found" }, { status: 404 });
+    }
+
+    const newOrderStatus = status.toUpperCase();
+
+    // 1. Update Order Status
+    const updatedOrder = await prisma.order.update({
+      where: { id: existingOrder.id },
+      data: { status: newOrderStatus },
+      include: { user: true, address: true },
+    });
+
+    // 2. Sync Payment Status based on Order Status Change
+    let paymentStatusToSet: string | undefined = undefined;
+    if (["DELIVERED", "COMPLETED", "PAID", "PROCESSING", "SHIPPED"].includes(newOrderStatus)) {
+      paymentStatusToSet = "SUCCEEDED";
+    } else if (["CANCELLED", "REFUNDED"].includes(newOrderStatus)) {
+      paymentStatusToSet = newOrderStatus;
+    }
+
+    if (paymentStatusToSet) {
+      await prisma.payment.updateMany({
+        where: { orderId: existingOrder.id },
+        data: { status: paymentStatusToSet },
+      });
+    }
+
+    // 3. Send Order Delivered Email if status is DELIVERED
+    if (updatedOrder.status === "DELIVERED" && updatedOrder.user?.email) {
+      await sendEmail({
+        to: updatedOrder.user.email,
+        subject: `Your Order ${updatedOrder.orderNumber} Has Been Delivered! 📦`,
+        html: `
+          <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+            <h2 style="color: #2e7d32;">Order Delivered Successfully!</h2>
+            <p>Hi ${updatedOrder.user.name || "Customer"},</p>
+            <p>We are thrilled to let you know that your order <strong>${updatedOrder.orderNumber}</strong> has been successfully delivered to your shipping address:</p>
+            <p style="background: #f9f9f9; padding: 12px; border-radius: 6px; border-left: 4px solid #2e7d32;">
+              ${updatedOrder.address ? `${updatedOrder.address.line1}, ${updatedOrder.address.city}, ${updatedOrder.address.state} ${updatedOrder.address.postalCode}` : "Address on file"}
+            </p>
+            <p>Thank you for shopping with Shop.co. We hope to see you again soon!</p>
+            <br/>
+            <p>Best regards,<br/><strong>Shop.co Team</strong></p>
+          </div>
+        `,
+      });
+    }
+
+    return NextResponse.json({ success: true, data: updatedOrder });
+  } catch (error: any) {
+    console.error("Failed to update order status:", error);
+    return NextResponse.json({ success: false, error: error.message || "Internal Server Error" }, { status: 500 });
   }
 }

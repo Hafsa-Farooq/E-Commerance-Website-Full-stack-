@@ -1,40 +1,40 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma'; // Fixed: imported prisma instead of db
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   try {
-    // Fetch users who have placed at least one order
     const customers = await prisma.user.findMany({
       where: {
         orders: {
-          some: {}, // Ensures user has at least one order
+          some: {},
         },
       },
       include: {
-        orders: true, // Include orders to calculate totals
+        orders: true,
+        addresses: true, // phone yahan se aata hai
       },
       orderBy: {
-        createdAt: 'desc',
+        createdAt: "desc",
       },
     });
 
     const formattedCustomers = customers.map((user) => {
       const totalOrders = user.orders.length;
-      // Calculate total spent by summing up the order totals
       const totalSpentNum = user.orders.reduce((sum, order) => sum + Number(order.total || 0), 0);
+      const firstAddress = user.addresses[0];
 
       return {
         id: `CUST-${user.id.slice(-4).toUpperCase()}`,
         dbId: user.id,
         name: user.name || "Customer",
         email: user.email,
-        phone: user.phone || "+1 (555) 000-0000",
-        avatar: user.image || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80",
-        totalOrders: totalOrders,
+        phone: firstAddress?.phone || "N/A", // User model mein phone nahi hai, Address se aa raha hai
+        avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80",
+        totalOrders,
         totalSpent: `$${totalSpentNum.toFixed(2)}`,
         status: "Active",
         statusColor: "bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-400",
-        joinedDate: new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
+        joinedDate: new Date(user.createdAt).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }),
       };
     });
 

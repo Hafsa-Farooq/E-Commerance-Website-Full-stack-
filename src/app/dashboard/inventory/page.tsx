@@ -29,6 +29,10 @@ export default function InventoryPage() {
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10; // Aik page par kitne items dikhane hain
+
   // Fetch inventory from API with search filtering
   useEffect(() => {
     const fetchInventory = async () => {
@@ -38,6 +42,7 @@ export default function InventoryPage() {
         const data = await res.json();
         if (data.success) {
           setInventoryItems(data.data);
+          setCurrentPage(1); // Naya search hote hi pehle page pe wapas jana
         }
       } catch (error) {
         console.error("Failed to fetch inventory:", error);
@@ -52,6 +57,24 @@ export default function InventoryPage() {
 
     return () => clearTimeout(timer);
   }, [searchQuery]);
+
+  // Pagination Logic Calculations
+  const totalPages = Math.ceil(inventoryItems.length / itemsPerPage) || 1;
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = inventoryItems.slice(indexOfFirstItem, indexOfLastItem);
+
+  const handlePrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage((prev) => prev - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage((prev) => prev + 1);
+    }
+  };
 
   // Handle stock update
   const handleUpdateStock = async (id: string, currentStock: number) => {
@@ -117,10 +140,10 @@ export default function InventoryPage() {
   };
 
   const toggleSelectAll = () => {
-    if (selectedRows.length === inventoryItems.length) {
+    if (selectedRows.length === currentItems.length) {
       setSelectedRows([]);
     } else {
-      setSelectedRows(inventoryItems.map(item => item.id));
+      setSelectedRows(currentItems.map(item => item.id));
     }
   };
 
@@ -171,7 +194,7 @@ export default function InventoryPage() {
                 <th className="py-3 px-4 w-12 text-center">
                   <input 
                     type="checkbox" 
-                    checked={selectedRows.length === inventoryItems.length && inventoryItems.length > 0}
+                    checked={selectedRows.length === currentItems.length && currentItems.length > 0}
                     onChange={toggleSelectAll}
                     className="rounded border-input text-primary focus:ring-primary cursor-pointer"
                   />
@@ -196,14 +219,14 @@ export default function InventoryPage() {
                     Loading inventory...
                   </td>
                 </tr>
-              ) : inventoryItems.length === 0 ? (
+              ) : currentItems.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="py-8 text-center text-muted-foreground">
                     No inventory items found.
                   </td>
                 </tr>
               ) : (
-                inventoryItems.map((item) => {
+                currentItems.map((item) => {
                   const isSelected = selectedRows.includes(item.id);
                   const isDropdownOpen = openDropdownId === item.id;
 
@@ -262,7 +285,7 @@ export default function InventoryPage() {
                             <button 
                               onClick={() => {
                                 setOpenDropdownId(null);
-                                router.push(`/dashboard/products/edit/${item.id}`);
+                                router.push(`/dashboard/product-detail?id=${item.id}`);
                               }}
                               className="w-full text-left px-3 py-1.5 rounded-lg hover:bg-muted text-xs font-medium cursor-pointer"
                             >
@@ -285,16 +308,27 @@ export default function InventoryPage() {
           </table>
         </div>
 
-        {/* Table Footer / Pagination */}
+        {/* Table Footer / Functional Pagination */}
         <div className="flex flex-col sm:flex-row items-center justify-between p-4 border-t gap-4 text-xs text-muted-foreground">
-          <div>
-            {selectedRows.length} of {inventoryItems.length} row(s) selected.
+          <div className="flex items-center gap-4">
+            <span>{selectedRows.length} of {currentItems.length} row(s) selected.</span>
+            <span>Page {currentPage} of {totalPages} ({inventoryItems.length} total items)</span>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" disabled className="rounded-xl text-xs font-semibold h-9">
+            <Button 
+              variant="outline" 
+              className="rounded-xl text-xs font-semibold h-9" 
+              onClick={handlePrevPage}
+              disabled={currentPage === 1}
+            >
               Previous
             </Button>
-            <Button variant="outline" className="rounded-xl text-xs font-semibold h-9">
+            <Button 
+              variant="outline" 
+              className="rounded-xl text-xs font-semibold h-9" 
+              onClick={handleNextPage}
+              disabled={currentPage === totalPages}
+            >
               Next
             </Button>
           </div>

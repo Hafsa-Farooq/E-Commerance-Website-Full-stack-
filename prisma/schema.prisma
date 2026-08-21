@@ -29,6 +29,11 @@ enum PaymentStatus {
   FAILED
   REFUNDED
 }
+enum PaymentMethod {
+  COD
+  BANK_TRANSFER
+  STRIPE
+}
 
 enum DiscountType {
   PERCENTAGE
@@ -314,6 +319,7 @@ model OrderItem {
 
 model Payment {
   id                    String        @id @default(cuid())
+  method                PaymentMethod @default(STRIPE)
   stripeSessionId       String?       @unique
   stripePaymentIntentId String?       @unique
   status                PaymentStatus @default(PENDING)

@@ -135,7 +135,7 @@ export default function Header() {
             </SignInButton>
           ) : (
             <div className="flex items-center">
-              <UserButton fallbackRedirectUrl="/" />
+              <UserButton afterSignOutUrl="/" />
             </div>
           )}
         </div>

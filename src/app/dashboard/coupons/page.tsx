@@ -5,13 +5,13 @@ import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { 
-  Search, MoreHorizontal, ArrowUpDown, 
-  Ticket, Percent, DollarSign, Calendar, Plus, Loader2 
+  Search, MoreHorizontal, 
+  Ticket, Plus, Loader2 
 } from "lucide-react";
 
 interface Coupon {
   id: string;
-  dbId: string | number;
+  dbId: string;
   code: string;
   title: string;
   type: string;
@@ -22,60 +22,53 @@ interface Coupon {
   expiry: string;
 }
 
-// Fallback dummy data taake UI hamesha intact rahe
-const fallbackCoupons: Coupon[] = [
-  {
-    id: "CPN-001",
-    dbId: 1,
-    code: "SUMMER20",
-    title: "Summer Sale Discount",
-    type: "Percentage",
-    value: "20% OFF",
-    usage: "142 / 500",
-    status: "Active",
-    statusColor: "bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-400",
-    expiry: "Aug 31, 2026"
-  },
-  {
-    id: "CPN-002",
-    dbId: 2,
-    code: "WELCOME10",
-    title: "New User Welcome Bonus",
-    type: "Fixed",
-    value: "$10.00 OFF",
-    usage: "85 / 1000",
-    status: "Active",
-    statusColor: "bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-400",
-    expiry: "Dec 31, 2026"
-  }
-];
-
 export default function CouponsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
-  const [coupons, setCoupons] = useState<Coupon[]>(fallbackCoupons);
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchCoupons = async () => {
-      try {
-        setLoading(true);
-        const res = await fetch('/api/coupons');
-        const data = await res.json();
-        if (data.success && data.data.length > 0) {
-          setCoupons(data.data);
-        }
-      } catch (err) {
-        console.error("Error fetching coupons, showing fallback UI:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchCoupons();
   }, []);
+
+  const fetchCoupons = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch('/api/coupons');
+      const data = await res.json();
+      if (data.success) {
+        setCoupons(data.data || []);
+      }
+    } catch (err) {
+      console.error("Error fetching coupons:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (dbId: string) => {
+    if (!confirm("Are you sure you want to delete this coupon?")) return;
+
+    try {
+      const res = await fetch(`/api/coupons/${dbId}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setCoupons((prev) => prev.filter((c) => c.dbId !== dbId));
+        setOpenDropdownId(null);
+      } else {
+        alert(data.error || "Failed to delete coupon");
+      }
+    } catch (error) {
+      console.error("Error deleting coupon:", error);
+      alert("Something went wrong");
+    }
+  };
 
   // Filter coupons based on search query
   const filteredCoupons = coupons.filter(cpn => 
@@ -111,10 +104,10 @@ export default function CouponsPage() {
           <p className="text-xs text-muted-foreground mt-1">Manage promotional discount codes, vouchers, and special offers for your store.</p>
         </div>
         <Link href="/dashboard/coupons/new">
-  <Button className="rounded-xl bg-foreground text-background hover:bg-foreground/90 gap-2 font-semibold text-xs h-10">
-    <Plus className="h-4 w-4" /> Create Coupon
-  </Button>
-</Link>
+          <Button className="rounded-xl bg-foreground text-background hover:bg-foreground/90 gap-2 font-semibold text-xs h-10">
+            <Plus className="h-4 w-4" /> Create Coupon
+          </Button>
+        </Link>
       </div>
 
       {/* Search Bar */}
@@ -154,60 +147,84 @@ export default function CouponsPage() {
               </tr>
             </thead>
             <tbody className="divide-y text-xs">
-              {filteredCoupons.map((cpn) => {
-                const isSelected = selectedRows.includes(cpn.id);
-                const isDropdownOpen = openDropdownId === cpn.id;
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-primary" />
+                    Loading coupons from database...
+                  </td>
+                </tr>
+              ) : filteredCoupons.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center text-muted-foreground font-medium">
+                    No coupons found. Create your first coupon using the button above!
+                  </td>
+                </tr>
+              ) : (
+                filteredCoupons.map((cpn) => {
+                  const isSelected = selectedRows.includes(cpn.id);
+                  const isDropdownOpen = openDropdownId === cpn.id;
 
-                return (
-                  <tr key={cpn.id} className={`hover:bg-muted/30 transition-colors ${isSelected ? 'bg-muted/50' : ''}`}>
-                    <td className="py-3 px-4 text-center">
-                      <input 
-                        type="checkbox" 
-                        checked={isSelected}
-                        onChange={() => toggleSelectRow(cpn.id)}
-                        className="rounded border-input text-primary focus:ring-primary cursor-pointer"
-                      />
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
-                          <Ticket className="h-5 w-5" />
+                  return (
+                    <tr key={cpn.id} className={`hover:bg-muted/30 transition-colors ${isSelected ? 'bg-muted/50' : ''}`}>
+                      <td className="py-3 px-4 text-center">
+                        <input 
+                          type="checkbox" 
+                          checked={isSelected}
+                          onChange={() => toggleSelectRow(cpn.id)}
+                          className="rounded border-input text-primary focus:ring-primary cursor-pointer"
+                        />
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
+                            <Ticket className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <span className="font-mono font-bold text-foreground text-sm tracking-wider">{cpn.code}</span>
+                            <span className="block text-[11px] text-muted-foreground">{cpn.title}</span>
+                          </div>
                         </div>
-                        <div>
-                          <span className="font-mono font-bold text-foreground text-sm tracking-wider">{cpn.code}</span>
-                          <span className="block text-[11px] text-muted-foreground">{cpn.title}</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 font-bold text-foreground">{cpn.value}</td>
-                    <td className="py-3 px-4 text-muted-foreground font-medium">{cpn.usage}</td>
-                    <td className="py-3 px-4">
-                      <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold border ${cpn.statusColor}`}>
-                        {cpn.status}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-muted-foreground font-medium">{cpn.expiry}</td>
-                    <td className="py-3 px-4 text-right relative">
-                      <button 
-                        onClick={() => setOpenDropdownId(isDropdownOpen ? null : cpn.id)}
-                        className="h-8 w-8 rounded-lg hover:bg-muted flex items-center justify-center text-muted-foreground transition-all ml-auto"
-                      >
-                        <MoreHorizontal className="h-4 w-4" />
-                      </button>
+                      </td>
+                      <td className="py-3 px-4 font-bold text-foreground">{cpn.value}</td>
+                      <td className="py-3 px-4 text-muted-foreground font-medium">{cpn.usage}</td>
+                      <td className="py-3 px-4">
+                        <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold border ${cpn.statusColor}`}>
+                          {cpn.status}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-muted-foreground font-medium">{cpn.expiry}</td>
+                      <td className="py-3 px-4 text-right relative">
+                        <button 
+                          onClick={() => setOpenDropdownId(isDropdownOpen ? null : cpn.id)}
+                          className="h-8 w-8 rounded-lg hover:bg-muted flex items-center justify-center text-muted-foreground transition-all ml-auto cursor-pointer"
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </button>
 
-                      {/* Action Dropdown Menu */}
-                      {isDropdownOpen && (
-                        <div className="absolute right-10 top-12 w-40 bg-popover text-popover-foreground border rounded-xl shadow-lg p-1.5 z-50 text-left space-y-0.5">
-                          <div className="px-3 py-1.5 text-[11px] font-bold text-muted-foreground uppercase border-b mb-1">Actions</div>
-                          <button className="w-full text-left px-3 py-1.5 rounded-lg hover:bg-muted text-xs font-medium">Edit Coupon</button>
-                          <button className="w-full text-left px-3 py-1.5 rounded-lg hover:bg-muted text-xs font-medium">View Stats</button>
-                          <button className="w-full text-left px-3 py-1.5 rounded-lg hover:bg-destructive/10 text-destructive text-xs font-medium">Delete</button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
+                        {/* Action Dropdown Menu */}
+                        {isDropdownOpen && (
+                          <div className="absolute right-10 top-12 w-40 bg-popover text-popover-foreground border rounded-xl shadow-lg p-1.5 z-50 text-left space-y-0.5">
+                            <div className="px-3 py-1.5 text-[11px] font-bold text-muted-foreground uppercase border-b mb-1">Actions</div>
+                            <button 
+                              onClick={() => setOpenDropdownId(null)} 
+                              className="w-full text-left px-3 py-1.5 rounded-lg hover:bg-muted text-xs font-medium cursor-pointer"
+                            >
+                              Edit Coupon
+                            </button>
+                            <button 
+                              onClick={() => handleDelete(cpn.dbId)} 
+                              className="w-full text-left px-3 py-1.5 rounded-lg hover:bg-destructive/10 text-destructive text-xs font-medium cursor-pointer"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
@@ -221,7 +238,7 @@ export default function CouponsPage() {
             <Button variant="outline" disabled className="rounded-xl text-xs font-semibold h-9">
               Previous
             </Button>
-            <Button variant="outline" className="rounded-xl text-xs font-semibold h-9">
+            <Button variant="outline" disabled className="rounded-xl text-xs font-semibold h-9">
               Next
             </Button>
           </div>

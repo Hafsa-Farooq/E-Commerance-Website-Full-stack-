@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { 
@@ -25,7 +25,12 @@ interface Category {
 
 export default function AddCategoryPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const categoryId = searchParams.get("id");
+  const isEditMode = Boolean(categoryId);
+
   const [submitting, setSubmitting] = useState(false);
+  const [pageLoading, setPageLoading] = useState(isEditMode);
   const [mainCategories, setMainCategories] = useState<Category[]>([]);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -38,7 +43,7 @@ export default function AddCategoryPage() {
     status: "Active",
   });
 
-// Fetch categories for parent dropdown with safe JSON parsing
+  // Fetch categories for parent dropdown with safe JSON parsing
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -48,7 +53,10 @@ export default function AddCategoryPage() {
         
         if (res.ok) {
           const categoriesList = Array.isArray(data) ? data : (data.data || []);
-          setMainCategories(categoriesList.filter((c: any) => !c.parentId));
+          // Category apne aap ko apna hi parent nahi ban sakti (edit mode mein exclude karna)
+          setMainCategories(
+            categoriesList.filter((c: any) => !c.parentId && c.id !== categoryId)
+          );
         } else {
           console.error("Failed to fetch categories:", data.error || `Server status: ${res.status}`);
         }
@@ -57,7 +65,42 @@ export default function AddCategoryPage() {
       }
     };
     fetchCategories();
-  }, []);
+  }, [categoryId]);
+
+  // Edit mode: existing category fetch karke form pre-fill karna
+  useEffect(() => {
+    if (!categoryId) return;
+
+    async function fetchCategoryForEdit() {
+      try {
+        const res = await fetch(`/api/categories/${categoryId}`);
+        const result = await res.json();
+
+        if (result.success) {
+          const c = result.data;
+          setFormData({
+            name: c.name || "",
+            slug: c.slug || "",
+            image: c.image || "",
+            parentId: c.parentId || "",
+            status: "Active",
+          });
+          if (c.image) {
+            setImagePreview(c.image);
+          }
+        } else {
+          alert("Category load nahi ho saki.");
+        }
+      } catch (error) {
+        console.error(error);
+        alert("Category load karte waqt masla aaya.");
+      } finally {
+        setPageLoading(false);
+      }
+    }
+
+    fetchCategoryForEdit();
+  }, [categoryId]);
 
   // Auto-generate slug
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -123,11 +166,14 @@ export default function AddCategoryPage() {
         parentId: formData.parentId === "" ? null : formData.parentId,
       };
 
-      const res = await fetch("/api/categories", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const res = await fetch(
+        isEditMode ? `/api/categories/${categoryId}` : "/api/categories",
+        {
+          method: isEditMode ? "PUT" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
 
       const resText = await res.text();
       const data = resText ? JSON.parse(resText) : {};
@@ -135,15 +181,23 @@ export default function AddCategoryPage() {
       if (res.ok || data.success) {
         router.push("/dashboard/categories");
       } else {
-        alert(data.error || "Failed to add category");
+        alert(data.error || "Failed to save category");
       }
     } catch (error) {
-      console.error("Error creating category:", error);
+      console.error("Error saving category:", error);
       alert("An unexpected error occurred. Check console.");
     } finally {
       setSubmitting(false);
     }
   };
+
+  if (pageLoading) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center text-muted-foreground text-sm font-medium">
+        Loading category...
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-muted/10 pb-20 pt-2 px-4 sm:px-8 max-w-7xl mx-auto">
@@ -159,7 +213,9 @@ export default function AddCategoryPage() {
           </Button>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">Create New Category</h1>
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
+                {isEditMode ? "Edit Category" : "Create New Category"}
+              </h1>
               <span className="px-3 py-1 text-[11px] font-bold uppercase bg-primary/10 text-primary rounded-full tracking-wider border border-primary/20">
                 Catalog Manager
               </span>
@@ -346,7 +402,9 @@ export default function AddCategoryPage() {
                     disabled={submitting}
                     className="rounded-2xl bg-foreground text-background hover:bg-foreground/90 text-xs sm:text-sm font-semibold h-12 px-8 cursor-pointer shadow-md transition-all"
                   >
-                    {submitting ? "Saving Category..." : "Save Category"}
+                    {submitting 
+                      ? (isEditMode ? "Updating Category..." : "Saving Category...") 
+                      : (isEditMode ? "Update Category" : "Save Category")}
                   </Button>
                 </div>
 

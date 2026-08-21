@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Trash2, ArrowRight, Tag, Loader2 } from "lucide-react";
+import { ChevronRight, Trash2, ArrowRight, Tag, Loader2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth, useClerk } from "@clerk/nextjs";
 import Header from "@/components/layout/Header";
@@ -27,6 +27,14 @@ interface CartItemData {
   };
 }
 
+interface CouponData {
+  code: string;
+  type: string;
+  rawDiscountValue: number;
+  value: string;
+  status: string;
+}
+
 export default function CartPage() {
   const router = useRouter();
   const { isLoaded, isSignedIn } = useAuth();
@@ -35,6 +43,8 @@ export default function CartPage() {
   const [cartItems, setCartItems] = useState<CartItemData[]>([]);
   const [loading, setLoading] = useState(true);
   const [promoCode, setPromoCode] = useState("");
+  const [applying, setApplying] = useState(false);
+  const [appliedCoupon, setAppliedCoupon] = useState<CouponData | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -105,9 +115,58 @@ export default function CartPage() {
   };
 
   const subtotal = cartItems.reduce((acc, item) => acc + getItemPrice(item) * item.quantity, 0);
-  const discount = subtotal > 0 ? Math.round(subtotal * 0.2) : 0;
+
+  // Dynamic Coupon Application Handler
+  const handleApplyCoupon = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!promoCode.trim()) {
+      toast.error("Please enter a promo code");
+      return;
+    }
+
+    setApplying(true);
+    try {
+      const res = await fetch("/api/coupons");
+      const data = await res.json();
+
+      if (data.success) {
+        const foundCoupon = data.data.find(
+          (c: any) => c.code.toLowerCase() === promoCode.trim().toLowerCase()
+        );
+
+        if (!foundCoupon) {
+          toast.error("Invalid coupon code. Please check and try again.");
+        } else if (foundCoupon.status !== "Active") {
+          toast.error(`This coupon is currently ${foundCoupon.status.toLowerCase()}`);
+        } else {
+          setAppliedCoupon(foundCoupon);
+          toast.success(`Coupon "${foundCoupon.code}" applied successfully! (${foundCoupon.value})`);
+          setPromoCode("");
+        }
+      } else {
+        toast.error("Failed to validate coupon");
+      }
+    } catch (error) {
+      toast.error("Something went wrong while applying coupon");
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  // Calculate Discount dynamically
+  const calculateDiscount = () => {
+    if (!appliedCoupon) return 0;
+    const val = appliedCoupon.rawDiscountValue || 0;
+    if (appliedCoupon.type === 'PERCENTAGE') {
+      return Math.round((subtotal * val) / 100);
+    } else {
+      return Math.min(subtotal, val);
+    }
+  };
+
+  const discount = calculateDiscount();
   const deliveryFee = subtotal > 0 ? 15 : 0;
-  const total = subtotal - discount + deliveryFee;
+  const total = Math.max(0, subtotal - discount + deliveryFee);
 
   // Not signed in state
   if (isLoaded && !isSignedIn) {
@@ -132,7 +191,6 @@ export default function CartPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-white overflow-x-hidden">
-      {/* Header Component */}
       <Header />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 mb-10 font-satoshi">
@@ -227,7 +285,9 @@ export default function CartPage() {
                   <span className="font-bold text-black">${subtotal}</span>
                 </div>
                 <div className="flex justify-between text-black/60">
-                  <span>Discount (-20%)</span>
+                  <span>
+                    Discount {appliedCoupon ? `(${appliedCoupon.code})` : ""}
+                  </span>
                   <span className="font-bold text-[#FF3333]">-${discount}</span>
                 </div>
                 <div className="flex justify-between text-black/60">
@@ -243,7 +303,7 @@ export default function CartPage() {
 
               {/* Promo Code & Checkout */}
               <div className="flex flex-col gap-3 mt-2">
-                <div className="flex gap-3">
+                <form onSubmit={handleApplyCoupon} className="flex gap-3">
                   <div className="relative flex-1">
                     <Tag className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-black/40" />
                     <input 
@@ -254,10 +314,33 @@ export default function CartPage() {
                       className="w-full bg-[#F0F0F0] rounded-full pl-10 pr-4 py-3 text-sm outline-none text-black placeholder:text-black/40"
                     />
                   </div>
-                  <button className="bg-black text-white px-6 py-3 rounded-full font-medium text-sm hover:bg-black/80 transition-colors cursor-pointer">
-                    Apply
+                  <button 
+                    type="submit"
+                    disabled={applying}
+                    className="bg-black text-white px-6 py-3 rounded-full font-medium text-sm hover:bg-black/80 transition-colors cursor-pointer disabled:opacity-55 flex items-center justify-center min-w-[80px]"
+                  >
+                    {applying ? <Loader2 className="w-4 h-4 animate-spin" /> : "Apply"}
                   </button>
-                </div>
+                </form>
+
+                {appliedCoupon && (
+                  <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 text-emerald-800 px-3.5 py-2 rounded-xl text-xs font-medium">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      <span>Coupon <b>{appliedCoupon.code}</b> applied ({appliedCoupon.value})</span>
+                    </div>
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        setAppliedCoupon(null);
+                        toast.info("Coupon removed");
+                      }}
+                      className="text-red-600 hover:underline font-semibold cursor-pointer"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
 
                 <button
                   onClick={() => router.push("/checkout")}
@@ -272,7 +355,6 @@ export default function CartPage() {
         )}
       </main>
 
-      {/* Footer Component */}
       <Footer />
     </div>
   );

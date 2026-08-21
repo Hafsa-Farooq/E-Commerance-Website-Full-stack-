@@ -2,14 +2,13 @@ import { Webhook } from "svix";
 import { headers } from "next/headers";
 import { WebhookEvent } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import { sendEmail } from "@/lib/mail";
 
 export async function POST(req: Request) {
   const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
 
   if (!WEBHOOK_SECRET) {
-    throw new Error(
-      "CLERK_WEBHOOK_SECRET is missing from .env"
-    );
+    throw new Error("CLERK_WEBHOOK_SECRET is missing from .env");
   }
 
   const headerPayload = await headers();
@@ -50,11 +49,30 @@ export async function POST(req: Request) {
       return new Response("No email found for user", { status: 400 });
     }
 
+    const isNewUser = eventType === "user.created";
+
     await prisma.user.upsert({
       where: { clerkId: id },
       update: { email, name },
       create: { clerkId: id, email, name },
     });
+
+    // Send Welcome Email on Signup
+    if (isNewUser) {
+      await sendEmail({
+        to: email,
+        subject: "Welcome to Shop.co! 🎉",
+        html: `
+          <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+            <h2 style="color: #000;">Welcome to Shop.co, ${name || "Valued Customer"}!</h2>
+            <p>Your account has been successfully created. We are excited to have you onboard.</p>
+            <p>Explore our latest collection and enjoy a seamless shopping experience.</p>
+            <br/>
+            <p>Warm regards,<br/><strong>Shop.co Team</strong></p>
+          </div>
+        `,
+      });
+    }
   }
 
   if (eventType === "user.deleted") {
@@ -64,7 +82,7 @@ export async function POST(req: Request) {
       await prisma.user
         .delete({ where: { clerkId: id } })
         .catch(() => {
-          // user might not exist in our DB — safe to ignore
+          // user might not exist in DB — safe to ignore
         });
     }
   }

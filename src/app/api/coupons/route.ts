@@ -45,6 +45,7 @@ export async function GET() {
         code: cpn.code,
         title: `Discount Offer (${cpn.discountType})`,
         type: cpn.discountType,
+        rawDiscountValue: valNumber, // <-- Yeh add kiya hai calculation ke liye
         value: formattedValue,
         usage: `${usageCount} / ${maxLimit}`,
         status: status,
@@ -74,7 +75,7 @@ export async function POST(request: Request) {
     const newCoupon = await prisma.coupon.create({
       data: {
         code: code.toUpperCase(),
-        discountType, // e.g., 'PERCENTAGE' or 'FIXED'
+        discountType, 
         discountValue: parseFloat(discountValue),
         usageLimit: usageLimit ? parseInt(usageLimit) : null,
         expiresAt: expiresAt ? new Date(expiresAt) : null,

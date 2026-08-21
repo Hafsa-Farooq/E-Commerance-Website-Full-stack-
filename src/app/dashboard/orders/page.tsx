@@ -30,8 +30,20 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [openStatusDropdownId, setOpenStatusDropdownId] = useState<string | null>(null);
+
+  // Pagination states
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalOrders, setTotalOrders] = useState(0);
+  const limit = 10; // Items per page
 
   const tabs = ["All", "Completed", "Processed", "Returned", "Canceled"];
+
+  // Reset page to 1 when search query or active tab changes
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, activeTab]);
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -40,12 +52,17 @@ export default function OrdersPage() {
         const queryParams = new URLSearchParams();
         if (searchQuery) queryParams.append("search", searchQuery);
         if (activeTab) queryParams.append("tab", activeTab);
+        queryParams.append("page", page.toString());
+        queryParams.append("limit", limit.toString());
 
         const res = await fetch(`/api/orders?${queryParams.toString()}`);
         const data = await res.json();
 
         if (data.success) {
           setOrders(data.data);
+          // Assuming API returns totalPages and total count
+          setTotalPages(data.totalPages || 1);
+          setTotalOrders(data.total || data.data.length);
         }
       } catch (error) {
         console.error("Failed to fetch orders:", error);
@@ -59,7 +76,43 @@ export default function OrdersPage() {
     }, 300);
 
     return () => clearTimeout(debounceTimer);
-  }, [searchQuery, activeTab]);
+  }, [searchQuery, activeTab, page]);
+
+  const handleUpdateStatus = async (dbId: string, newStatus: string) => {
+    setOpenStatusDropdownId(null);
+    try {
+      const res = await fetch(`/api/orders/${dbId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      const data = await res.json();
+      
+      if (data.success) {
+        setOrders(orders.map(o => {
+          if (o.dbId === dbId) {
+            let statusColor = "bg-yellow-500/10 text-yellow-600 border-yellow-200";
+            if (newStatus === "DELIVERED" || newStatus === "PAID" || newStatus === "COMPLETED") {
+              statusColor = "bg-green-500/10 text-green-600 border-green-200";
+            } else if (newStatus === "CANCELLED" || newStatus === "REFUNDED") {
+              statusColor = "bg-red-500/10 text-red-600 border-red-200";
+            } else if (newStatus === "PROCESSING" || newStatus === "SHIPPED") {
+              statusColor = "bg-blue-500/10 text-blue-600 border-blue-200";
+            }
+
+            return {
+              ...o,
+              status: newStatus.charAt(0) + newStatus.slice(1).toLowerCase(),
+              statusColor,
+            };
+          }
+          return o;
+        }));
+      }
+    } catch (error) {
+      console.error("Failed to update order status:", error);
+    }
+  };
 
   const toggleSelectAll = () => {
     if (selectedRows.length === orders.length) {
@@ -184,6 +237,7 @@ export default function OrdersPage() {
                 orders.map((order) => {
                   const isSelected = selectedRows.includes(order.id);
                   const isDropdownOpen = openDropdownId === order.id;
+                  const isStatusOpen = openStatusDropdownId === order.dbId;
 
                   return (
                     <tr key={order.id} className={`hover:bg-muted/30 transition-colors ${isSelected ? 'bg-muted/50' : ''}`}>
@@ -211,11 +265,28 @@ export default function OrdersPage() {
                       </td>
                       <td className="py-3 px-4 text-muted-foreground">{order.date}</td>
                       <td className="py-3 px-4 text-muted-foreground font-medium">{order.type}</td>
-                      <td className="py-3 px-4">
-                        <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold border ${order.statusColor}`}>
-                          {order.status}
-                        </span>
+                      
+                      {/* Interactive Status Dropdown Column */}
+                      <td className="py-3 px-4 relative">
+                        <button
+                          onClick={() => setOpenStatusDropdownId(isStatusOpen ? null : order.dbId)}
+                          className={`px-2.5 py-1 rounded-full text-[11px] font-bold border ${order.statusColor} inline-flex items-center gap-1 cursor-pointer hover:opacity-85 transition-opacity`}
+                        >
+                          {order.status} ▼
+                        </button>
+
+                        {isStatusOpen && (
+                          <div className="absolute left-4 top-14 w-36 bg-popover text-popover-foreground border rounded-xl shadow-lg p-1.5 z-50 text-left space-y-0.5">
+                            <div className="px-3 py-1.5 text-[11px] font-bold text-muted-foreground uppercase border-b mb-1">Update Status</div>
+                            <button onClick={() => handleUpdateStatus(order.dbId, "PENDING")} className="w-full text-left px-3 py-1.5 rounded-lg hover:bg-muted text-xs font-medium cursor-pointer">Pending</button>
+                            <button onClick={() => handleUpdateStatus(order.dbId, "PROCESSING")} className="w-full text-left px-3 py-1.5 rounded-lg hover:bg-muted text-xs font-medium cursor-pointer">Processing</button>
+                            <button onClick={() => handleUpdateStatus(order.dbId, "SHIPPED")} className="w-full text-left px-3 py-1.5 rounded-lg hover:bg-muted text-xs font-medium cursor-pointer">Shipped</button>
+                            <button onClick={() => handleUpdateStatus(order.dbId, "DELIVERED")} className="w-full text-left px-3 py-1.5 rounded-lg hover:bg-muted text-xs font-medium cursor-pointer text-green-600 font-semibold">Delivered</button>
+                            <button onClick={() => handleUpdateStatus(order.dbId, "CANCELLED")} className="w-full text-left px-3 py-1.5 rounded-lg hover:bg-destructive/10 text-destructive text-xs font-medium cursor-pointer">Cancelled</button>
+                          </div>
+                        )}
                       </td>
+
                       <td className="py-3 px-4 text-right relative">
                         <button 
                           onClick={() => setOpenDropdownId(isDropdownOpen ? null : order.id)}
@@ -229,7 +300,6 @@ export default function OrdersPage() {
                           <div className="absolute right-10 top-12 w-40 bg-popover text-popover-foreground border rounded-xl shadow-lg p-1.5 z-50 text-left space-y-0.5">
                             <div className="px-3 py-1.5 text-[11px] font-bold text-muted-foreground uppercase border-b mb-1">Actions</div>
                             
-                            {/* Connected Link to Sidebar Order Detail Page with query param */}
                             <Link href={`/dashboard/order-detail?id=${order.id}`} className="w-full block">
                               <button className="w-full text-left px-3 py-1.5 rounded-lg hover:bg-muted text-xs font-medium cursor-pointer">
                                 Order Details
@@ -252,13 +322,23 @@ export default function OrdersPage() {
         {/* Table Footer / Pagination */}
         <div className="flex flex-col sm:flex-row items-center justify-between p-4 border-t gap-4 text-xs text-muted-foreground">
           <div>
-            {selectedRows.length} of {orders.length} row(s) selected.
+            {selectedRows.length} of {totalOrders || orders.length} row(s) selected. (Page {page} of {totalPages})
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" disabled className="rounded-xl text-xs font-semibold h-9 cursor-pointer">
+            <Button 
+              variant="outline" 
+              disabled={page <= 1 || loading} 
+              onClick={() => setPage(p => Math.max(p - 1, 1))}
+              className="rounded-xl text-xs font-semibold h-9 cursor-pointer"
+            >
               Previous
             </Button>
-            <Button variant="outline" className="rounded-xl text-xs font-semibold h-9 cursor-pointer">
+            <Button 
+              variant="outline" 
+              disabled={page >= totalPages || loading} 
+              onClick={() => setPage(p => Math.min(p + 1, totalPages))}
+              className="rounded-xl text-xs font-semibold h-9 cursor-pointer"
+            >
               Next
             </Button>
           </div>

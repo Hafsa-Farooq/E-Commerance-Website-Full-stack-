@@ -1,12 +1,5 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { Pool } from "pg";
-
-const connectionString = process.env.DATABASE_URL;
-const pool = new Pool({ connectionString });
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
+import { prisma } from "@/lib/prisma";
 
 // GET: Fetch inventory items
 export async function GET(request: Request) {
@@ -21,17 +14,17 @@ export async function GET(request: Request) {
           { sku: { contains: search, mode: "insensitive" } },
         ],
       } : undefined,
-      include: { 
+      include: {
         category: true,
-        images: true // Includes related images table
+        images: true,
       },
       orderBy: { createdAt: "desc" },
     });
 
-    const formattedInventory = products.map((product: any) => {
+    const formattedInventory = products.map((product) => {
       let status = "In Stock";
       let statusColor = "bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-400";
-      
+
       if (product.stock === 0) {
         status = "Out of Stock";
         statusColor = "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-950/40 dark:text-rose-400";
@@ -40,11 +33,8 @@ export async function GET(request: Request) {
         statusColor = "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-400";
       }
 
-      // Safe image selection: check relation array first, then string field, else empty string
-      const resolvedImage = product.images?.[0]?.url || product.image || "";
-
-      // Safe conversion for Prisma Decimal type to prevent $0.00 issue
-      const numericPrice = product.price ? Number(product.price.toString()) : 0;
+      const resolvedImage = product.images?.[0]?.url || "";
+      const numericPrice = Number(product.basePrice); // basePrice hai, price nahi
 
       return {
         id: product.id,
@@ -72,15 +62,33 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { name, sku, categoryId, price, stock, image, description } = body;
 
+    if (!name || !price || !categoryId) {
+      return NextResponse.json(
+        { success: false, error: "Name, price, and category are required" },
+        { status: 400 }
+      );
+    }
+
+    const baseSlug = name
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, "")
+      .replace(/[\s_-]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    const slug = `${baseSlug}-${Date.now()}`;
+
     const newProduct = await prisma.product.create({
       data: {
         name,
-        sku: sku || `SKU-${Date.now().toString().slice(-6)}`,
-        price: parseFloat(price),
+        slug,
+        sku: sku || null,
+        basePrice: parseFloat(price), // basePrice hai, price nahi
         stock: parseInt(stock, 10),
-        image: image || null,
         description: description || null,
-        categoryId: categoryId || null,
+        categoryId, // required hai, null nahi ho sakta
+        images: image
+          ? { create: [{ url: image, position: 0 }] } // image string se ProductImage record banana
+          : undefined,
       },
     });
 

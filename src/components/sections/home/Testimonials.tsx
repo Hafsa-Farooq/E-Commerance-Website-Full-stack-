@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import React, { useRef } from "react";
 import { Star, CheckCircle2, ArrowLeft, ArrowRight } from "lucide-react";
@@ -85,16 +85,12 @@ export default function Testimonials() {
         </div>
       </div>
 
-      {/* Testimonials Carousel Container with Edge Peek Effect */}
+      {/* Testimonials Carousel Container with Clean Mask Fade */}
       <div className="relative w-full">
-        {/* Left & Right Fade Overlay Gradients for smooth clipping */}
-        <div className="absolute top-0 bottom-0 left-0 w-12 sm:w-24 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none" />
-        <div className="absolute top-0 bottom-0 right-0 w-12 sm:w-24 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none" />
-
-        {/* Scrollable Track */}
+        {/* Scrollable Track with Mask Image for Edge Fading */}
         <div
           ref={scrollRef}
-          className="flex gap-5 overflow-x-auto scrollbar-hide px-4 sm:px-8 lg:px-[max(2rem,calc((100vw-80rem)/2+2rem))] snap-x snap-mandatory pb-4"
+          className="flex gap-5 overflow-x-auto scrollbar-hide px-4 sm:px-8 lg:px-[max(2rem,calc((100vw-80rem)/2+2rem))] snap-x snap-mandatory pb-4 [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]"
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
           {testimonialsData.map((item) => (

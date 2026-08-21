@@ -1,13 +1,19 @@
 import { NextResponse } from "next/server";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import { sendEmail } from "@/lib/mail";
 
-// GET: Admin dashboard ke liye saare orders list karna
+// GET: Admin dashboard ke liye orders list karna (with pagination & filtering)
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search") || "";
     const tab = searchParams.get("tab") || "All";
+    
+    // Pagination parameters
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const limit = parseInt(searchParams.get("limit") || "10", 10);
+    const skip = (page - 1) * limit;
 
     const where: any = {};
 
@@ -23,8 +29,15 @@ export async function GET(request: Request) {
       where.status = tab.toUpperCase();
     }
 
+    // Total count calculate karein pagination ke liye
+    const total = await prisma.order.count({ where });
+    const totalPages = Math.ceil(total / limit) || 1;
+
+    // Paginated orders fetch karein
     const orders = await prisma.order.findMany({
       where,
+      skip,
+      take: limit,
       include: {
         user: true,
         items: {
@@ -79,7 +92,13 @@ export async function GET(request: Request) {
       };
     });
 
-    return NextResponse.json({ success: true, data: formattedOrders });
+    return NextResponse.json({ 
+      success: true, 
+      data: formattedOrders,
+      total,
+      totalPages,
+      currentPage: page,
+    });
   } catch (error) {
     console.error("Error fetching orders:", error);
     return NextResponse.json(
@@ -89,7 +108,7 @@ export async function GET(request: Request) {
   }
 }
 
-// POST: Customer checkout se naya order create karna
+// POST: Customer checkout se naya order create karna (COD / Bank Transfer)
 export async function POST(request: Request) {
   try {
     const { userId: clerkId } = await auth();
@@ -107,8 +126,8 @@ export async function POST(request: Request) {
       state,
       postalCode,
       country,
-      paymentMethod, // "COD" | "BANK_TRANSFER" | "STRIPE"
-      couponCode, // optional
+      paymentMethod, 
+      couponCode, 
     } = body;
 
     if (!fullName || !phone || !line1 || !city || !state || !postalCode || !country) {
@@ -117,6 +136,11 @@ export async function POST(request: Request) {
 
     if (!paymentMethod) {
       return NextResponse.json({ error: "Please select a payment method" }, { status: 400 });
+    }
+
+    const validMethods = ["COD", "BANK_TRANSFER", "STRIPE"];
+    if (!validMethods.includes(paymentMethod)) {
+      return NextResponse.json({ error: "Invalid payment method" }, { status: 400 });
     }
 
     let user = await prisma.user.findUnique({ where: { clerkId } });
@@ -168,7 +192,6 @@ export async function POST(request: Request) {
       return sum + price * item.quantity;
     }, 0);
 
-    // Coupon validation (agar diya gaya ho)
     let coupon = null;
     let discount = 0;
 
@@ -197,7 +220,6 @@ export async function POST(request: Request) {
         discount = Number(coupon.discountValue);
       }
     } else {
-      // Coupon na dene par default 20% off (jaisa Cart page mein already hai)
       discount = Math.round(subtotal * 0.2);
     }
 
@@ -228,6 +250,7 @@ export async function POST(request: Request) {
         },
         payment: {
           create: {
+            method: paymentMethod,
             status: "PENDING",
             amount: total,
           },
@@ -236,7 +259,6 @@ export async function POST(request: Request) {
       include: { items: true },
     });
 
-    // Coupon usage record (agar coupon use hua ho)
     if (coupon) {
       await prisma.couponUsage.create({
         data: { couponId: coupon.id, userId: user.id },
@@ -244,6 +266,26 @@ export async function POST(request: Request) {
     }
 
     await prisma.cartItem.deleteMany({ where: { cartId: cart.id } });
+
+    // Send Checkout / Order Placed Email
+    if (user.email) {
+      await sendEmail({
+        to: user.email,
+        subject: `Order Confirmation (${orderNumber}) - Shop.co`,
+        html: `
+          <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+            <h2>Thank you for your order!</h2>
+            <p>Hi ${user.name || "Customer"},</p>
+            <p>Your order <strong>${orderNumber}</strong> has been successfully placed.</p>
+            <p><strong>Payment Method:</strong> ${paymentMethod}</p>
+            <p><strong>Total Amount:</strong> $${total.toFixed(2)}</p>
+            <br/>
+            <p>We will notify you once your order status updates.</p>
+            <p>Best regards,<br/><strong>Shop.co Team</strong></p>
+          </div>
+        `,
+      });
+    }
 
     return NextResponse.json(
       { success: true, data: { orderId: order.id, orderNumber: order.orderNumber } },

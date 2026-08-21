@@ -25,6 +25,10 @@ export default function ProductListPage() {
   const [activeDropdown, setActiveDropdown] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5; // Aik page par kitne products dikhane hain
+
   useEffect(() => {
     async function fetchProducts() {
       try {
@@ -47,11 +51,38 @@ export default function ProductListPage() {
     fetchProducts();
   }, []);
 
-  // Real data calculations for top metric cards
-  const totalInventoryValue = products.reduce((acc, p) => acc + (Number(p.basePrice || 0) * Number(p.stock || 0)), 0);
-  const totalStockCount = products.reduce((acc, p) => acc + Number(p.stock || 0), 0);
+  // Real & synchronized dynamic calculations for top metric cards
+  const totalStockCount = products.reduce((acc, p) => acc + Number(p.stock ?? 10), 0);
+  
+  const totalInventoryValue = products.reduce((acc, p) => {
+    const price = Number(p.basePrice || 0);
+    const stock = Number(p.stock ?? 10);
+    return acc + (price * stock);
+  }, 0);
+
   const activeProductsCount = products.filter(p => p.isActive ?? true).length;
-  const averagePrice = products.length > 0 ? (products.reduce((acc, p) => acc + Number(p.basePrice || 0), 0) / products.length).toFixed(0) : 0;
+  
+  const averagePrice = products.length > 0 
+    ? Math.round(products.reduce((acc, p) => acc + Number(p.basePrice || 0), 0) / products.length) 
+    : 0;
+
+  // Pagination Logic Calculations
+  const totalPages = Math.ceil(products.length / itemsPerPage) || 1;
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentProducts = products.slice(indexOfFirstItem, indexOfLastItem);
+
+  const handlePrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(prev => prev - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(prev => prev + 1);
+    }
+  };
 
   const handleViewDetails = (productId: string) => {
     setActiveDropdown(null);
@@ -133,7 +164,7 @@ export default function ProductListPage() {
             <span>Average Price</span>
             <span className="text-blue-600 bg-blue-50 dark:bg-blue-950/50 text-xs font-semibold px-2 py-0.5 rounded-full border border-blue-200">Avg</span>
           </div>
-          <div className="text-2xl font-bold tracking-tight">${averagePrice}</div>
+          <div className="text-2xl font-bold tracking-tight">${averagePrice.toLocaleString()}</div>
         </div>
       </div>
 
@@ -211,14 +242,14 @@ export default function ProductListPage() {
                     Loading products from database...
                   </td>
                 </tr>
-              ) : products.length === 0 ? (
+              ) : currentProducts.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="py-8 text-center text-muted-foreground">
                     Koi product database mein mojood nahi hai.
                   </td>
                 </tr>
               ) : (
-                products.map((product, idx) => (
+                currentProducts.map((product, idx) => (
                   <tr 
                     key={product.id || idx} 
                     className={`hover:bg-muted/30 transition-colors group ${deletingId === product.id ? "opacity-40 pointer-events-none" : ""}`}
@@ -306,12 +337,30 @@ export default function ProductListPage() {
           </table>
         </div>
 
-        {/* Footer / Pagination */}
+        {/* Footer / Functional Pagination */}
         <div className="flex items-center justify-between p-4 border-t bg-muted/10 text-sm text-muted-foreground">
-          <span>{products.length} row(s) found.</span>
+          <span>
+            Page {currentPage} of {totalPages} ({products.length} total products)
+          </span>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="rounded-xl font-medium" disabled>Previous</Button>
-            <Button variant="outline" size="sm" className="rounded-xl font-medium cursor-pointer">Next</Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="rounded-xl font-medium cursor-pointer" 
+              onClick={handlePrevPage}
+              disabled={currentPage === 1}
+            >
+              Previous
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="rounded-xl font-medium cursor-pointer" 
+              onClick={handleNextPage}
+              disabled={currentPage === totalPages}
+            >
+              Next
+            </Button>
           </div>
         </div>
       </div>
